@@ -21,7 +21,7 @@ const __dirname = path.dirname(__filename)
 // load env
 dotenv.config()
 
-console.log('[env] GOOGLE_API_KEY present:', Boolean(process.env.GOOGLE_API_KEY))
+console.log('[env] DEEPSEEK_API_KEY present:', Boolean(process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY))
 
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY
 if (proxyUrl) {

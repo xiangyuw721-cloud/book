@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
 interface GenerateParams {
   bookName: string;
@@ -13,22 +13,23 @@ export const generateBookShare = async ({
   experience,
   mode,
 }: GenerateParams): Promise<string> => {
-  const rawApiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  const rawApiKey = process.env.DEEPSEEK_API_KEY || process.env.OPENAI_API_KEY;
   const apiKey = rawApiKey?.trim().replace(/^['"]|['"]$/g, '');
 
   if (apiKey) {
     const masked =
       apiKey.length <= 8 ? `len=${apiKey.length}` : `${apiKey.slice(0, 4)}...${apiKey.slice(-4)} (len=${apiKey.length})`;
-    console.log(`[gemini] apiKey ${masked}`);
+    console.log(`[deepseek] apiKey ${masked}`);
   }
 
   if (!apiKey) {
-    console.error("GOOGLE_API_KEY is not set in environment variables.");
+    console.error("DEEPSEEK_API_KEY is not set in environment variables.");
     throw new Error("API Key is missing.");
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const baseURL = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
+  const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+  const client = new OpenAI({ apiKey, baseURL });
 
   let prompt = `你是一个热爱阅读的普通读者，正在分享你的真实读书感悟。你的风格是真诚、感性、自然的，像是在给好朋友安利这本书，或者发一条走心的朋友圈/小红书。请绝对避免教科书式的总结或生硬的翻译腔（例如“首先、其次、总之”、“通过这本书我学到了”等）。
 
@@ -61,9 +62,14 @@ ${experience ? experience : "（用户未提供，请自行结合书籍内容发
 `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
+    const completion = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'user', content: prompt },
+      ],
+    });
+    const content = completion.choices?.[0]?.message?.content ?? '';
+    return content.trim();
   } catch (error) {
     const err = error as {
       name?: string;
@@ -79,11 +85,11 @@ ${experience ? experience : "（用户未提供，请自行结合书籍内容发
             hostname: (err.cause as { hostname?: unknown }).hostname,
           }
         : err?.cause;
-    console.error("Gemini API Error:", {
+    console.error("DeepSeek API Error:", {
       name: err?.name,
       message: err?.message,
       cause,
     });
-    throw new Error(err?.message || "Failed to generate content from Gemini.");
+    throw new Error(err?.message || "Failed to generate content from DeepSeek.");
   }
 };
